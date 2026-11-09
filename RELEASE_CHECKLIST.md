@@ -22,11 +22,11 @@ This checklist separates automated checks from checks that require hosted CI or 
 
 ## Required before stable 1.0.0
 
-- [ ] Ruff lint check passes in a network-enabled environment (not runnable in this offline build environment).
+- [x] Ruff lint check passes in a network-enabled environment (verified locally on Windows, Python 3.12: `ruff check src tests` clean).
 - [ ] Hosted GitHub Actions matrix passes on Windows, Linux, and macOS.
 - [ ] Test supported Python versions against the actual runners; remove versions unavailable or unsupported by dependencies.
 - [ ] Verify Gemini and OpenAI requests against real test credentials; verify Ollama against a local server.
-- [ ] Verify native keychain integration on Windows Credential Manager, macOS Keychain, and supported Linux Secret Service backends.
+- [ ] Verify native keychain integration on Windows Credential Manager, macOS Keychain, and supported Linux Secret Service backends. (Windows half now verified: `keyring.backends.Windows.WinVaultKeyring` priority 5 accepted by the backend gate; real set/read/delete round-trip through Credential Manager passed, including correct `False` for deleting a missing entry.)
 - [ ] `pip-audit` completes in hosted CI and dependency license compatibility is reviewed.
 - [x] Review all six files in the current public GitHub baseline and document differences in `AUDIT_REPORT.md`.
 - [x] Correct README Python CI matrix and add v1.0.0rc3 notes.
