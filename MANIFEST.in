@@ -1,0 +1,4 @@
+include README.md LICENSE CHANGELOG.md CONTRIBUTING.md RELEASE_CHECKLIST.md AUDIT_REPORT.md
+include smart_commit.py
+recursive-include .github *.yml
+recursive-include tests *.py
