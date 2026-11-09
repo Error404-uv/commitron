@@ -116,10 +116,13 @@ def test_config_path_uses_windows_appdata(monkeypatch, tmp_path):
     monkeypatch.setattr(config.os, "name", "nt")
     monkeypatch.delenv("APPDATA", raising=False)
     monkeypatch.setattr(config.Path, "home", lambda: tmp_path)
-    # With APPDATA unset the nt branch must fall back to home/AppData/Roaming,
-    # and the test must run unchanged on Windows (PosixPath is not
-    # instantiable there).
-    assert config.config_path() == tmp_path / "AppData" / "Roaming" / "commitron" / "config.json"
+    # With APPDATA unset the nt branch must fall back to home/AppData/Roaming.
+    # Compare strings, not Path objects: on POSIX hosts pathlib (3.13+) refuses
+    # to combine a PosixPath with a WindowsPath-flavoured join, so equality on
+    # native Path types would be platform-dependent even though the produced
+    # path is correct.
+    assert str(config.config_path()) == str(
+        tmp_path / "AppData" / "Roaming" / "commitron" / "config.json")
 
 
 def test_config_path_prefers_appdata_env_on_windows(monkeypatch, tmp_path):
@@ -127,7 +130,8 @@ def test_config_path_prefers_appdata_env_on_windows(monkeypatch, tmp_path):
 
     monkeypatch.setattr(config.os, "name", "nt")
     monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
-    assert config.config_path() == tmp_path / "Roaming" / "commitron" / "config.json"
+    assert str(config.config_path()) == str(
+        tmp_path / "Roaming" / "commitron" / "config.json")
 
 
 def test_config_path_uses_macos_application_support(monkeypatch, tmp_path):
