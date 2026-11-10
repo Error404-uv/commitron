@@ -1,0 +1,44 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.11', '3.12', '3.13', '3.14', '3.15']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package, test tools, and optional credential backend
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -e ".[test,secure-store]"
+      - name: Lint
+        run: ruff check src tests
+      - name: Test and measure coverage
+        run: |
+          coverage run -m pytest
+          coverage report --fail-under=80
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install build twine
+          python -m build
+          python -c "import glob, subprocess, sys; subprocess.check_call([sys.executable, '-m', 'twine', 'check', *glob.glob('dist/*')])"
+      - name: Install wheel and smoke-test CLI
+        run: |
+          python -c "import glob, subprocess, sys; subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-deps', glob.glob('dist/*.whl')[0]])"
+          commitron --version
+          commitron --help
+      - name: Audit installed dependencies
+        run: |
+          python -m pip install pip-audit
+          pip-audit
