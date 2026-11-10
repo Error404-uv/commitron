@@ -1,6 +1,6 @@
 import json
 import os
-from pathlib import WindowsPath, PureWindowsPath
+from pathlib import WindowsPath
 
 import pytest
 
