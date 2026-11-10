@@ -1,4 +1,6 @@
 import json
+import os
+from pathlib import PurePosixPath
 
 import pytest
 
@@ -115,14 +117,21 @@ def test_config_path_uses_windows_appdata(monkeypatch, tmp_path):
 
     monkeypatch.setattr(config.os, "name", "nt")
     monkeypatch.delenv("APPDATA", raising=False)
-    monkeypatch.setattr(config.Path, "home", lambda: tmp_path)
-    # With APPDATA unset the nt branch must fall back to home/AppData/Roaming.
-    # Compare strings, not Path objects: on POSIX hosts pathlib (3.13+) refuses
-    # to combine a PosixPath with a WindowsPath-flavoured join, so equality on
-    # native Path types would be platform-dependent even though the produced
-    # path is correct.
-    assert str(config.config_path()) == str(
-        tmp_path / "AppData" / "Roaming" / "commitron" / "config.json")
+    # On a POSIX host Path.home() returns a PosixPath; the nt branch then
+    # joins it with Windows-style segments and pathlib 3.13+ refuses to mix
+    # path flavours at all (WindowsPath cannot even be instantiated there).
+    # So exercise the real nt branch natively on Windows only...
+    if os.name == "nt":
+        monkeypatch.setattr(config.Path, "home", lambda: tmp_path)
+        assert str(config.config_path()) == str(
+            tmp_path / "AppData" / "Roaming" / "commitron" / "config.json")
+    else:
+        # ...and on POSIX hosts verify the APPDATA/env half of the same branch
+        # (below) plus that no-APPDATA falls back under home without crashing
+        # when the fallback is reachable: emulate by injecting a POSIX-shaped
+        # home so the join stays single-flavour.
+        monkeypatch.setattr(config.Path, "home", lambda: PurePosixPath(tmp_path))
+        assert str(config.config_path()) == str(tmp_path) + "/AppData/Roaming/commitron/config.json"
 
 
 def test_config_path_prefers_appdata_env_on_windows(monkeypatch, tmp_path):
@@ -130,6 +139,8 @@ def test_config_path_prefers_appdata_env_on_windows(monkeypatch, tmp_path):
 
     monkeypatch.setattr(config.os, "name", "nt")
     monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
+    # APPDATA is read as a string and wrapped in Path(), so this half of the
+    # nt branch is flavour-safe on every platform.
     assert str(config.config_path()) == str(
         tmp_path / "Roaming" / "commitron" / "config.json")
 
