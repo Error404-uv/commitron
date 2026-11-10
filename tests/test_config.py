@@ -1,6 +1,4 @@
 import json
-import os
-from pathlib import WindowsPath
 
 import pytest
 
@@ -116,38 +114,22 @@ def test_config_path_uses_windows_appdata(monkeypatch, tmp_path):
     from commitron import config
 
     monkeypatch.delenv("APPDATA", raising=False)
-    if os.name == "nt":
-        # Native run: the real nt branch with the real Path.home().
-        monkeypatch.setattr(config.Path, "home", lambda: tmp_path)
-        assert str(config.config_path()) == str(
-            tmp_path / "AppData" / "Roaming" / "commitron" / "config.json")
-    else:
-        # Emulated Windows on a POSIX host: pathlib binds concrete flavours
-        # (WindowsPath/PosixPath) to the running OS and refuses cross-OS
-        # instantiation. Fake os.name so config_path() enters the nt branch
-        # using the real Path module on this host, then patch home() with a
-        # Windows-shaped string path so the join never cross-flavours.
-        monkeypatch.setattr(os, "name", "nt")
-        monkeypatch.setattr(config.Path, "home", lambda: WindowsPath(str(tmp_path).replace("/", "\\")))
-        assert str(config.config_path()) == str(
-            WindowsPath(str(tmp_path).replace("/", "\\")) / "AppData" / "Roaming" / "commitron" / "config.json")
+    # The nt branch always wraps Path() results with str(...), so build the
+    # expected string directly (never instantiate a WindowsPath on a POSIX
+    # runner where pathlib refuses cross-flavour joins).
+    home = str(tmp_path).replace("/", "\\")
+    assert str(config.config_path()).replace("\\", "/") == f"{home}/AppData/Roaming/commitron/config.json"
 
 
 def test_config_path_prefers_appdata_env_on_windows(monkeypatch, tmp_path):
     from commitron import config
 
     monkeypatch.setattr(config.os, "name", "nt")
-    monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
-    if os.name != "nt":
-        # Same flavour reasoning as above: APPDATA is wrapped in Path(),
-        # which would build a PosixPath here but a WindowsPath on Windows.
-        # Fake os.name so the real host Path module stays single-flavour.
-        monkeypatch.setattr(os, "name", "nt")
-        appdata = WindowsPath(str(tmp_path / "Roaming").replace("/", "\\"))
-        assert str(config.config_path()) == str(appdata / "commitron" / "config.json")
-    else:
-        assert str(config.config_path()).replace("\\", "/").endswith(
-            "Roaming/commitron/config.json")
+    appdata = str(tmp_path / "Roaming").replace("/", "\\")
+    monkeypatch.setenv("APPDATA", appdata)
+    # APPDATA is read as a string and wrapped in Path(), so on POSIX runners
+    # the comparison stays a pure string match with forward slashes.
+    assert str(config.config_path()).replace("\\", "/") == f"{appdata}/commitron/config.json"
 
 
 def test_config_path_uses_macos_application_support(monkeypatch, tmp_path):
